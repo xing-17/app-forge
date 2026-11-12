@@ -1,0 +1,18 @@
+name: housing_au
+version: "0.0.1"
+description: Australia housing market macro research project 
+extensions: [httpfs]
+engine:
+  type: dbt
+  threads: 2
+  sources:
+    - source: nswvg
+      dataset: psi_week
+      location: file:///Users/xingxing/Desktop/PROJECT/apps/app-fortress/local/vault/source/nswvg/psi_week/date=*/*.parquet
+    - source: nswvg
+      dataset: psi_year
+      location: file:///Users/xingxing/Desktop/PROJECT/apps/app-fortress/local/vault/source/nswvg/psi_year/date=*/*.parquet
+  assets:
+    - name: nsw_psi
+      description: NSW PSI data
+  
