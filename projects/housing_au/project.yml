@@ -6,13 +6,9 @@ engine:
   type: dbt
   threads: 2
   sources:
-    - source: nswvg
-      dataset: psi_week
-      location: file:///Users/xingxing/Desktop/PROJECT/apps/app-fortress/local/vault/source/nswvg/psi_week/date=*/*.parquet
-    - source: nswvg
-      dataset: psi_year
-      location: file:///Users/xingxing/Desktop/PROJECT/apps/app-fortress/local/vault/source/nswvg/psi_year/date=*/*.parquet
-  assets:
-    - name: nsw_psi
-      description: NSW PSI data
-  
+    - name: nswvg
+      meta:
+        external_location: "read_parquet('/Users/xingxing/Desktop/PROJECT/apps/app-fortress/local/vault/source/nswvg/{name}/*/*.parquet', hive_partitioning = true, union_by_name = true)"
+      tables:
+        - name: psi_week
+        - name: psi_year
