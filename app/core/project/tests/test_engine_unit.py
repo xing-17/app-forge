@@ -8,6 +8,7 @@ import yaml
 from app.core.project import engine as engine_module
 from app.core.project.engine import ProjectEngine
 from app.core.project.setting import ProjectSetting
+from app.core.setting import SecretsSetting
 
 
 def _setting(**engine) -> ProjectSetting:
@@ -25,12 +26,26 @@ def engine_path(tmp_path):
     return tmp_path / "projects" / "demo" / ".engine"
 
 
-def _engine(engine_path, **engine_setting) -> ProjectEngine:
+def _engine(engine_path, secrets=None, **engine_setting) -> ProjectEngine:
     return ProjectEngine(
         path=engine_path,
         project_setting=_setting(**engine_setting),
         assets_path=engine_path.parent / "assets",
+        secrets=secrets,
     )
+
+
+_SECRETS = SecretsSetting(
+    secrets=[
+        {
+            "type": "s3",
+            "key_id": "id-1",
+            "secret": "sec-1",
+            "scope": "s3://bucket/",
+            "endpoint": "oss-cn-shanghai.aliyuncs.com",
+        }
+    ]
+)
 
 
 def _load(path):
@@ -64,6 +79,31 @@ class TestProjectEngineRender:
         assert output["external_root"] == str(engine.assets_path)
         assert output["threads"] == 4
         assert output["extensions"] == ["httpfs"]
+
+    def test_profile_has_no_secrets_by_default(self, engine_path):
+        _engine(engine_path).render()
+        output = _load(engine_path / "profiles.yml")["demo"]["outputs"]["database"]
+        assert "secrets" not in output
+
+    def test_profile_carries_secrets_with_plain_credentials(self, engine_path):
+        _engine(engine_path, secrets=_SECRETS).render()
+        output = _load(engine_path / "profiles.yml")["demo"]["outputs"]["database"]
+        assert output["secrets"] == [
+            {
+                "type": "s3",
+                "key_id": "id-1",
+                "secret": "sec-1",
+                "scope": "s3://bucket/",
+                "endpoint": "oss-cn-shanghai.aliyuncs.com",
+            }
+        ]
+
+    def test_profile_is_owner_only(self, engine_path):
+        engine_path.mkdir(parents=True)
+        (engine_path / "profiles.yml").write_text("old", encoding="utf-8")
+        (engine_path / "profiles.yml").chmod(0o644)
+        _engine(engine_path, secrets=_SECRETS).render()
+        assert (engine_path / "profiles.yml").stat().st_mode & 0o777 == 0o600
 
     def test_writes_sources_when_defined(self, engine_path):
         engine = _engine(engine_path, sources=[{"name": "tushare", "tables": [{"name": "tradedates"}]}])

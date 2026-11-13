@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.project import Project, ProjectEngine
+from app.core.setting import SecretsSetting
 
 
 def _make_project(root, name: str = "demo", setting_name: str | None = None):
@@ -41,6 +42,15 @@ class TestProjectInit:
         assert isinstance(project.engine, ProjectEngine)
         assert project.engine.path == project.engine_path
         assert project.engine.assets_path == project.assets_path
+
+    def test_hands_secrets_to_engine(self, tmp_path):
+        secrets = SecretsSetting(secrets=[{"type": "s3", "key_id": "id-1", "secret": "sec-1"}])
+        project = Project(_make_project(tmp_path), secrets=secrets)
+        assert project.engine.secrets == secrets
+
+    def test_engine_has_no_secrets_by_default(self, tmp_path):
+        project = Project(_make_project(tmp_path))
+        assert project.engine.secrets == SecretsSetting()
 
 
 class TestProjectValidation:

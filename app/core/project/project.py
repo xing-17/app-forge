@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import ClassVar
 
+from app.core.setting import SecretsSetting
+
 from .engine import ProjectEngine
 from .setting import ProjectSetting
 
@@ -34,6 +36,8 @@ class Project:
     ----------
         path (str | Path):
             Project directory, its name must match the name in project.yml
+        secrets (SecretsSetting | None):
+            Shared secrets handed to the engine, loaded by the caller
 
     Raises:
     ----------
@@ -57,6 +61,7 @@ class Project:
     def __init__(
         self,
         path: str | Path,
+        secrets: SecretsSetting | None = None,
     ):
         self.path: Path = Path(path).expanduser().resolve()
         self.name: str = self.path.name
@@ -82,6 +87,7 @@ class Project:
             path=self.engine_path,
             project_setting=self.setting,
             assets_path=self.assets_path,
+            secrets=secrets,
         )
 
     def _check_project_dir(self) -> None:

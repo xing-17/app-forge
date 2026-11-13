@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 import yaml
 from dbt.cli.main import dbtRunner
 
+from app.core.setting import SecretsSetting
+
 from .setting import (
     EngineSetting,
     ProjectSetting,
@@ -22,6 +24,8 @@ class ProjectEngine:
             Project setting used to generate the engine
         engine_setting (EngineSetting):
             Engine part of the project setting
+        secrets (SecretsSetting):
+            Shared secrets written into the dbt profile, empty when none is given
         project_name (str):
             Project name, also used as dbt project and profile name
         assets_path (Path):
@@ -39,6 +43,8 @@ class ProjectEngine:
             Project setting used to generate the engine
         assets_path (Path):
             Project assets directory
+        secrets (SecretsSetting | None):
+            Shared secrets, no secret is written when omitted
 
     Methods:
     ----------
@@ -58,10 +64,12 @@ class ProjectEngine:
         path: Path,
         project_setting: ProjectSetting,
         assets_path: Path,
+        secrets: SecretsSetting | None = None,
     ):
         self.path: Path = path
         self.project_setting: ProjectSetting = project_setting
         self.engine_setting: EngineSetting = self.project_setting.engine
+        self.secrets: SecretsSetting = secrets or SecretsSetting()
         self.project_name: str = self.project_setting.name
         self.assets_path: Path = assets_path
         self.duckdb_file: str = f"{self.project_name}.duckdb"
@@ -89,18 +97,23 @@ class ProjectEngine:
         """Content of profiles.yml"""
         _name: str = self.project_setting.name
         _engine: EngineSetting = self.engine_setting
+        _output: dict[str, Any] = {
+            "type": "duckdb",
+            "path": str(self.duckdb_file_path),
+            "external_root": str(self.assets_path),
+            "threads": _engine.threads,
+            "extensions": self.project_setting.extensions,
+        }
+
+        # Inject secrets into the output if they exist
+        if self.secrets.secrets:
+            _output["secrets"] = self.secrets.to_duckdb()
+
+        # Build the profile as version 2
         _profile: dict[str, Any] = {
             _name: {
                 "target": self.dbt_target,
-                "outputs": {
-                    self.dbt_target: {
-                        "type": "duckdb",
-                        "path": str(self.duckdb_file_path),
-                        "external_root": str(self.assets_path),
-                        "threads": _engine.threads,
-                        "extensions": self.project_setting.extensions,
-                    }
-                },
+                "outputs": {self.dbt_target: _output},
             },
         }
         return _profile
@@ -125,11 +138,12 @@ class ProjectEngine:
             content=_dbt_project,
         )
 
-        # Render profile.yml
+        # Render profile.yml, it may hold plain credentials
         _profile: dict[str, Any] = self._build_dbt_profile()
         self._write_file(
             file="profiles.yml",
             content=_profile,
+            private=True,
         )
 
         # Render sources.yml if there are any sources defined in the engine setting
@@ -149,7 +163,6 @@ class ProjectEngine:
         self,
         *args: str,
     ) -> None:
-        """Render, then invoke dbt with `args` (e.g. "run", "test"); raise on failure."""
         self.render()
         _cmd: list[str] = [
             *args,
@@ -170,13 +183,19 @@ class ProjectEngine:
         self,
         file: str,
         content: dict[str, Any],
+        private: bool = False,
     ) -> None:
-        """Dump `content` as yaml to `file` relative to the engine directory."""
         _target: Path = self.path / file
         _target.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
+        if private:
+            # Tighten before writing to mode 0o600
+            # so content is never readable by others
+            _target.touch(mode=0o600, exist_ok=True)
+            _target.chmod(0o600)
+
         _content: str = yaml.safe_dump(
             content,
             sort_keys=False,
