@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.core._global import GlobalLogStreams
 from app.core.project import Project, ProjectEngine
 from app.core.setting import SecretsSetting
 
@@ -51,6 +52,64 @@ class TestProjectInit:
     def test_engine_has_no_secrets_by_default(self, tmp_path):
         project = Project(_make_project(tmp_path))
         assert project.engine.secrets == SecretsSetting()
+
+    def test_logger_defaults_to_global_stream_named_after_project(self, tmp_path):
+        project = Project(_make_project(tmp_path))
+        assert project.logstream is GlobalLogStreams.get("project/demo")
+        assert project.engine.logstream is project.logstream
+
+    def test_invalid_project_creates_no_logger(self, tmp_path):
+        with pytest.raises(ValueError):
+            Project(_make_project(tmp_path, setting_name="other"))
+        assert GlobalLogStreams.list_names() == []
+
+
+class TestProjectFiles:
+    def test_lists_nested_files_sorted(self, tmp_path):
+        folder = _make_project(tmp_path)
+        project = Project(folder)
+        (folder / "models" / "sub").mkdir()
+        (folder / "models" / "b.sql").write_text("b")
+        (folder / "models" / "sub" / "a.sql").write_text("a")
+        (folder / "assets" / "data.parquet").write_text("x")
+        (folder / "assets" / "ignored.csv").write_text("x")
+        root = folder.resolve()
+        assert project.models == [root / "models" / "b.sql", root / "models" / "sub" / "a.sql"]
+        assert project.assets == [root / "assets" / "data.parquet"]
+
+    def test_empty_when_folders_are_removed(self, tmp_path):
+        folder = _make_project(tmp_path)
+        project = Project(folder)
+        (folder / "models").rmdir()
+        (folder / "assets").rmdir()
+        assert project.models == []
+        assert project.assets == []
+
+    def test_fingerprint_is_stable(self, tmp_path):
+        project = Project(_make_project(tmp_path))
+        assert project.fingerprint == project.fingerprint
+
+    @pytest.mark.parametrize("file_name", ["models/new.sql", "assets/new.parquet"])
+    def test_fingerprint_changes_with_files(self, tmp_path, file_name):
+        folder = _make_project(tmp_path)
+        project = Project(folder)
+        before = project.fingerprint
+        (folder / file_name).write_text("x")
+        assert project.fingerprint != before
+
+    def test_fingerprint_changes_with_project_yml(self, tmp_path):
+        folder = _make_project(tmp_path)
+        project = Project(folder)
+        before = project.fingerprint
+        (folder / "project.yml").write_text('name: demo\nversion: "0.0.2"\n', encoding="utf-8")
+        assert project.fingerprint != before
+
+    def test_fingerprint_ignores_engine(self, tmp_path):
+        folder = _make_project(tmp_path)
+        project = Project(folder)
+        before = project.fingerprint
+        (folder / ".engine" / "profiles.yml").write_text("x")
+        assert project.fingerprint == before
 
 
 class TestProjectValidation:

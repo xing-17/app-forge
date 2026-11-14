@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 import yaml
 from dbt.cli.main import dbtRunner
 
+from app.core._global.logstreams import LogStream
 from app.core.setting import SecretsSetting
 
 from .setting import (
@@ -26,6 +27,8 @@ class ProjectEngine:
             Engine part of the project setting
         secrets (SecretsSetting):
             Shared secrets written into the dbt profile, empty when none is given
+        logstream (logging.Logger):
+            Engine logstream, a plain `forge.engine.<project>` logstream when none is given
         project_name (str):
             Project name, also used as dbt project and profile name
         assets_path (Path):
@@ -45,6 +48,8 @@ class ProjectEngine:
             Project assets directory
         secrets (SecretsSetting | None):
             Shared secrets, no secret is written when omitted
+        logstream (logging.Logger | None):
+            Engine logstream, usually the project logstream
 
     Methods:
     ----------
@@ -64,6 +69,7 @@ class ProjectEngine:
         path: Path,
         project_setting: ProjectSetting,
         assets_path: Path,
+        logstream: LogStream,
         secrets: SecretsSetting | None = None,
     ):
         self.path: Path = path
@@ -71,6 +77,7 @@ class ProjectEngine:
         self.engine_setting: EngineSetting = self.project_setting.engine
         self.secrets: SecretsSetting = secrets or SecretsSetting()
         self.project_name: str = self.project_setting.name
+        self.logstream: LogStream = logstream
         self.assets_path: Path = assets_path
         self.duckdb_file: str = f"{self.project_name}.duckdb"
         self.duckdb_file_path: Path = self.path / self.duckdb_file
@@ -137,6 +144,7 @@ class ProjectEngine:
             file="dbt_project.yml",
             content=_dbt_project,
         )
+        self.logstream.debug(f"proj({self.project_name}) dbt_project.yml OK")
 
         # Render profile.yml, it may hold plain credentials
         _profile: dict[str, Any] = self._build_dbt_profile()
@@ -145,6 +153,7 @@ class ProjectEngine:
             content=_profile,
             private=True,
         )
+        self.logstream.debug(f"proj({self.project_name}) profiles.yml OK")
 
         # Render sources.yml if there are any sources defined in the engine setting
         # If no sources are defined, the sources.yml file will be removed if it exists.
@@ -154,9 +163,13 @@ class ProjectEngine:
                 file="models/sources.yml",
                 content=_sources,
             )
+            self.logstream.debug(f"proj({self.project_name}) models/sources.yml OK")
         else:
             _sources_file: Path = self.path / "models" / "sources.yml"
             _sources_file.unlink(missing_ok=True)
+            self.logstream.debug(f"proj({self.project_name}) models/sources.yml removed")
+
+        self.logstream.info(f"proj({self.project_name}) engine OK")
         return self.path
 
     def run(
@@ -164,6 +177,10 @@ class ProjectEngine:
         *args: str,
     ) -> None:
         self.render()
+        _args_expr: str = " ".join(args)
+        self.logstream.info(f"proj({self.project_name}) run started")
+        self.logstream.info(f"proj({self.project_name}) command: dbt {_args_expr}")
+
         _cmd: list[str] = [
             *args,
             "--project-dir",
@@ -173,11 +190,12 @@ class ProjectEngine:
         ]
         _result = dbtRunner().invoke(_cmd)
         if not _result.success:
-            _args_expr: str = " ".join(args)
             _msg: str = f"dbt {_args_expr} failed"
             if _result.exception is not None:
                 _msg = f"{_msg}: {_result.exception}"
+            self.logstream.error(_msg)
             raise RuntimeError(_msg) from _result.exception
+        self.logstream.info(f"proj({self.project_name}) run finished")
 
     def _write_file(
         self,

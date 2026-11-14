@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
 
+from app.core.logstream import LogStream
 from app.core.project import engine as engine_module
 from app.core.project.engine import ProjectEngine
 from app.core.project.setting import ProjectSetting
@@ -32,6 +34,7 @@ def _engine(engine_path, secrets=None, **engine_setting) -> ProjectEngine:
         project_setting=_setting(**engine_setting),
         assets_path=engine_path.parent / "assets",
         secrets=secrets,
+        logstream=MagicMock(spec=LogStream),
     )
 
 
