@@ -12,6 +12,7 @@ class TestSystemSetting:
         assert setting.name == "forge"
         assert setting.alias == "武穆"
         assert setting.version == "0.0.1"
+        assert setting.level == "INFO"
         assert setting.timezone is None
 
     def test_unknown_field_is_rejected(self):
@@ -35,8 +36,16 @@ class TestSystemSetting:
             "name": "forge",
             "alias": "武穆",
             "version": "0.0.1",
+            "level": "INFO",
             "timezone": "UTC",
         }
+
+    def test_level_is_normalized_to_upper(self):
+        assert SystemSetting(level="debug").level == "DEBUG"
+
+    def test_unknown_level_is_rejected(self):
+        with pytest.raises(ValidationError, match="unknown log level"):
+            SystemSetting(level="LOUD")
 
 
 class TestSystemSettingFromYaml:

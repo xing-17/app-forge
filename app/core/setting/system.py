@@ -6,6 +6,14 @@ from pydantic import Field, field_validator
 
 from ._abstract import AbstractSetting
 
+_LEVELS: tuple[str, ...] = (
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL",
+)
+
 
 class SystemSetting(AbstractSetting):
     """
@@ -19,6 +27,8 @@ class SystemSetting(AbstractSetting):
             System alias
         version (str):
             System version
+        level (str):
+            Default log level, one of DEBUG, INFO, WARNING, ERROR, CRITICAL
         timezone (str | None):
             System timezone (IANA name, e.g. "Australia/Sydney")
 
@@ -36,10 +46,26 @@ class SystemSetting(AbstractSetting):
         default="0.0.1",
         description="[Optional] System version",
     )
+    level: str = Field(
+        default="INFO",
+        description="[Optional] Default log level",
+    )
     timezone: str | None = Field(
         default=None,
         description="[Optional] System timezone",
     )
+
+    @field_validator("level")
+    @classmethod
+    def _check_level(
+        cls,
+        value: str,
+    ) -> str:
+        _level: str = value.upper()
+        if _level not in _LEVELS:
+            _msg: str = f"unknown log level: {value}"
+            raise ValueError(_msg)
+        return _level
 
     @field_validator("timezone")
     @classmethod
