@@ -107,9 +107,10 @@ class FileGroup(logging.Handler):
         if _dir.is_file():
             _msg: str = "path must be a directory, not a file."
             raise ValueError(_msg)
-        _dir.mkdir(parents=True, exist_ok=True)
-
         self._path: Path = (_dir / f"{name}.log").resolve()
+
+        # `name` may contain "/" (e.g. "project/foo")
+        self._path.parent.mkdir(parents=True, exist_ok=True)
         self._timezone: tzinfo = timezone
 
         # compact only after 10% overflow to avoid rewriting on every emit
