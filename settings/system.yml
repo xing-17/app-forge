@@ -1,0 +1,9 @@
+# ------------------------------------------------------------------------------
+# Central configuration of all components
+# ------------------------------------------------------------------------------
+
+# System configuration
+alias: 武穆
+version: 0.1.0
+level: DEBUG
+timezone: Australia/Sydney
