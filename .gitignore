@@ -1,5 +1,14 @@
 # Project specific files
 .test/*
+local/
+settings/secrets.yml
+*.duckdb
+projects/*/assets/*
+!projects/*/assets/.gitkeep
+projects/*/.engine/
+logs/
+projects/*/.engine/*
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -240,13 +249,3 @@ logs/
 
 # Workbench outputs
 setting/*.yml
-
-# Forge
-local/
-*.duckdb
-projects/*/vault/*
-!projects/*/vault/.gitkeep
-!projects/*/vault/output/
-projects/*/vault/output/*
-!projects/*/vault/output/.gitkeep
-logs/
