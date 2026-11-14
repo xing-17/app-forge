@@ -28,7 +28,7 @@ class GlobalSettings:
 
     Methods:
     ----------
-        load(setting_path: Path | str | None = None) -> None:
+        load(path: Path | str | None = None) -> None:
             Load global setting, defaults to <app-forge>/settings
         get_system() -> SystemSetting:
             Get the system setting, lazy loaded
@@ -63,6 +63,9 @@ class GlobalSettings:
     system_setting: SystemSetting | None = None
     secrets_file_name: str = "secrets.yml"
     secrets_setting: SecretsSetting | None = None
+
+    # bumped on every load/reset, dependents compare it to spot stale objects
+    version: int = 0
 
     # thread safe lock for concurrent access
     _lock: threading.RLock = threading.RLock()
@@ -104,6 +107,7 @@ class GlobalSettings:
             cls.setting_path = _path
             cls.system_setting = _system
             cls.secrets_setting = _secrets
+            cls.version += 1
 
     @classmethod
     def _ensure_loaded(cls) -> None:
@@ -138,3 +142,4 @@ class GlobalSettings:
             cls.setting_path = None
             cls.system_setting = None
             cls.secrets_setting = None
+            cls.version += 1
