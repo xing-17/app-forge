@@ -1,0 +1,12 @@
+name: stock_cn
+version: "0.0.1"
+description: China stock market macro research project 
+extensions: [httpfs]
+engine:
+  threads: 2
+  sources:
+    - name: tushare
+      meta:
+        external_location: "read_parquet('s3://ynt-trading-prod-datalake/fortress/vault/source/tushare/{name}/snapshotdate=*/*.parquet', hive_partitioning = true, union_by_name = true)"
+      tables:
+        - name: tradedates

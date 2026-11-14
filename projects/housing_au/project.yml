@@ -3,8 +3,11 @@ version: "0.0.1"
 description: Australia housing market macro research project 
 extensions: [httpfs]
 engine:
-  type: dbt
   threads: 2
+  models:
+    stage:
+      +materialized: external
+      +format: parquet
   sources:
     - name: nswvg
       meta:
